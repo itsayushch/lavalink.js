@@ -97,7 +97,8 @@ export default class Http {
 
   public async do<T = any>(method: string, url: URL, data?: Buffer): Promise<T> {
     try {
-      const res = await fetch(`${this.input}${url.pathname} ${url.search}`, {
+      const res = await fetch(`${this.input}${url.pathname}${url.search}`, {
+        method,
         headers: {
           Authorization: this.node.password,
           'Content-Type': 'application/json',
