@@ -96,20 +96,22 @@ export default class Http {
   }
 
   public async do<T = any>(method: string, url: URL, data?: Buffer): Promise<T> {
-    const res = await fetch(`${url.href}:${url.port}${url.pathname} ${url.search}`, {
-      headers: {
-        Authorization: this.node.password,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-    })
+    try {
+      const res = await fetch(`${this.input}${url.pathname} ${url.search}`, {
+        headers: {
+          Authorization: this.node.password,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      })
 
-    const message = await res.json();
-
-    if (message.statusCode && message.statusCode >= 200 && message.statusCode < 300) {
+      const message = await res.json();
       return message;
+    } catch (error: any) {
+      throw new HTTPError(error.message, method, url);
+
     }
 
-    throw new HTTPError(message, method, url);
+
   }
 }
