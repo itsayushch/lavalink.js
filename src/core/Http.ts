@@ -1,5 +1,6 @@
-import { request, IncomingMessage, IncomingHttpHeaders, STATUS_CODES } from 'http';
+import { IncomingMessage, IncomingHttpHeaders, STATUS_CODES } from 'http';
 import { URL } from 'url';
+import fetch from 'cross-fetch';
 import RoutePlanner from './RoutePlanner';
 import BaseNode from '../base/Node';
 
@@ -11,7 +12,7 @@ export class HTTPError extends Error {
   public path: string;
   constructor(httpMessage: IncomingMessage, method: string, url: URL) {
     super(`${httpMessage.statusCode} ${STATUS_CODES[httpMessage.statusCode as number]}`)
-    Object.defineProperty(this, 'statusMessage', { enumerable: true, get: function () { return STATUS_CODES[httpMessage.statusCode as number]} })
+    Object.defineProperty(this, 'statusMessage', { enumerable: true, get: function () { return STATUS_CODES[httpMessage.statusCode as number] } })
     this.statusCode = httpMessage.statusCode as number;
     this.headers = httpMessage.headers;
     this.name = this.constructor.name;
@@ -29,9 +30,9 @@ export enum LoadType {
 }
 
 export interface TrackResponse {
- loadType: LoadType,
- playlistInfo: PlaylistInfo,
- tracks: Track[]
+  loadType: LoadType,
+  playlistInfo: PlaylistInfo,
+  tracks: Track[]
 }
 
 export interface PlaylistInfo {
@@ -95,44 +96,18 @@ export default class Http {
   }
 
   public async do<T = any>(method: string, url: URL, data?: Buffer): Promise<T> {
-    const message = await new Promise<IncomingMessage>((resolve) => {
-      const req = request({
-        method,
-        hostname: url.hostname,
-        port: url.port,
-        protocol: url.protocol,
-        path: url.pathname + url.search,
-        headers: {
-          Authorization: this.node.password,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-      }, resolve);
+    const res = await fetch(`${url.href}:${url.port}${url.pathname} ${url.search}`, {
+      headers: {
+        Authorization: this.node.password,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+    })
 
-      if (data) req.write(data);
-      req.end();
-    });
+    const message = await res.json();
 
     if (message.statusCode && message.statusCode >= 200 && message.statusCode < 300) {
-      const chunks: Array<Buffer> = [];
-      message.on('data', (chunk) => {
-        if (typeof chunk === 'string') chunk = Buffer.from(chunk);
-        chunks.push(chunk);
-      });
-
-      return new Promise<T>((resolve, reject) => {
-        message.once('error', reject);
-        message.once('end', () => {
-          message.removeAllListeners();
-
-          try {
-            const data = Buffer.concat(chunks);
-            resolve(JSON.parse(data.toString()));
-          } catch (e) {
-            reject(e);
-          }
-        });
-      });
+      return message;
     }
 
     throw new HTTPError(message, method, url);
